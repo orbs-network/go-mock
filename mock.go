@@ -262,6 +262,22 @@ func (m *Mock) When(name string, arguments ...interface{}) *MockFunction {
 	return f
 }
 
+func (m *Mock) ResetAndWhen(name string, arguments ...interface{}) *MockFunction {
+	defer m.mutex.Unlock()
+	m.mutex.Lock()
+
+	m.Functions = nil
+	m.order = 0
+
+	f := &MockFunction{
+		Name:      name,
+		Arguments: arguments,
+	}
+
+	m.Functions = append(m.Functions, f)
+	return f
+}
+
 // Called is the function used in the mocks to replace the actual task.
 //
 // Example:
