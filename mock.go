@@ -262,22 +262,6 @@ func (m *Mock) When(name string, arguments ...interface{}) *MockFunction {
 	return f
 }
 
-func (m *Mock) ResetAndWhen(name string, arguments ...interface{}) *MockFunction {
-	defer m.mutex.Unlock()
-	m.mutex.Lock()
-
-	m.Functions = nil
-	m.order = 0
-
-	f := &MockFunction{
-		Name:      name,
-		Arguments: arguments,
-	}
-
-	m.Functions = append(m.Functions, f)
-	return f
-}
-
 // Called is the function used in the mocks to replace the actual task.
 //
 // Example:
@@ -397,7 +381,10 @@ func (m *Mock) find(name string, arguments ...interface{}) (*MockFunction, []str
 	var ff *MockFunction
 	var alternatives []string
 
-	for _, f := range m.Functions {
+	// TK: changed to look for functions in the opposite order (newer first)
+	for k, _ := range m.Functions {
+		f := m.Functions[len(m.Functions) - 1 - k]
+
 		if f.Name != name {
 			continue
 		}
