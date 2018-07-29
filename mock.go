@@ -52,6 +52,7 @@ type MockFunction struct {
 	order             uint
 	timeout           time.Duration
 	call              reflect.Value
+	negative          bool
 }
 
 // MockReturnToArgument defines the function arguments used as return parameters.
@@ -187,6 +188,10 @@ func Slice(elements ...interface{}) AnyIfType {
 // Verify verifies the restrictions set in the stubbing.
 func (m *Mock) Verify() (bool, error) {
 	for i, f := range m.Functions {
+		if f.negative && f.count > 0 {
+			return false, fmt.Errorf("Function #%d %s executed %d times, expected no calls", i+1, f.Name, f.count)
+		}
+
 		switch f.countCheck {
 		case TIMES:
 			if f.count != f.times[1] {
@@ -262,21 +267,25 @@ func (m *Mock) When(name string, arguments ...interface{}) *MockFunction {
 	return f
 }
 
-func (m *Mock) ResetAndWhen(name string, arguments ...interface{}) *MockFunction {
+// Never defines a negative stub of one method with some specific arguments.
+// This is a call that should be registered so that Called() does not panic
+// And fail Verify() if it was called.
+// Note that if the caller of the mocked object expects a return value,
+// such a value will not be provided, so this mainly makes sense in context
+// of a side-effect call (void)
+func (m *Mock) Never(name string, arguments ...interface{}) {
 	defer m.mutex.Unlock()
 	m.mutex.Lock()
-
-	m.Functions = nil
-	m.order = 0
 
 	f := &MockFunction{
 		Name:      name,
 		Arguments: arguments,
+		negative: true,
 	}
 
 	m.Functions = append(m.Functions, f)
-	return f
 }
+
 
 // Called is the function used in the mocks to replace the actual task.
 //
@@ -304,7 +313,7 @@ func (m *Mock) Called(arguments ...interface{}) *MockResult {
 	parts := strings.Split(functionPath, ".")
 	functionName := parts[len(parts)-1]
 
-	f, alternatives := m.find(functionName, arguments...)
+	f, alternatives := m.find(m.Functions, functionName, arguments...)
 	if f != nil {
 		// Increase the counter
 		f.count++
@@ -393,11 +402,11 @@ func (m *Mock) Called(arguments ...interface{}) *MockResult {
 	panic(msg)
 }
 
-func (m *Mock) find(name string, arguments ...interface{}) (*MockFunction, []string) {
+func (m *Mock) find(functions []*MockFunction, name string, arguments ...interface{}) (*MockFunction, []string) {
 	var ff *MockFunction
 	var alternatives []string
 
-	for _, f := range m.Functions {
+	for _, f := range functions {
 		if f.Name != name {
 			continue
 		}

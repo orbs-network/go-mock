@@ -5,7 +5,8 @@ import (
 	"reflect"
 	"testing"
 	"time"
-)
+	"fmt"
+	)
 
 type AStruct struct {
 	Value int
@@ -892,3 +893,45 @@ func TestSlice(t *testing.T) {
 		}
 	}
 }
+
+func TestNever_ShouldNotPanic(t *testing.T) {
+	m := MockedStruct{}
+	m.Never("FuncWithArgs", 1, "never")
+
+	m.FuncWithArgs(1, "never")
+
+	if ok, _ := m.Mock.Verify(); ok {
+		t.Error(fmt.Sprintf("Expected verify to fail on a call that was never supposed to be called"))
+	}
+}
+
+func TestNeverMismatch(t *testing.T) {
+	m := MockedStruct{}
+	m.Never("FuncWithArgs", 1, "never")
+	m.When("FuncWithArgs", 1, "sometime").Return(0, "indeed")
+
+	_, ret := m.FuncWithArgs(1, "sometime")
+	if ret != "indeed"  {
+		t.Error(fmt.Sprintf("Expected 'indeed', got %s", ret))
+	}
+
+	if ok, err := m.Mock.Verify(); !ok {
+		t.Error(fmt.Sprintf("Verify failed: %s", err))
+	}
+
+	// now call with an argument that is Never() expected
+	m.FuncWithArgs(1, "never")
+	if ok, _ := m.Mock.Verify(); ok {
+		t.Error(fmt.Sprintf("Expected verify to fail on a call that was never supposed to be called"))
+	}
+}
+
+func TestNeverPositive(t *testing.T) {
+	m := MockedStruct{}
+	m.Never("FuncWithArgs", Any, Any)
+
+	if ok, err := m.Mock.Verify(); !ok {
+		t.Error(fmt.Sprintf("Verify failed: %s", err))
+	}
+}
+
