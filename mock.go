@@ -185,30 +185,38 @@ func Slice(elements ...interface{}) AnyIfType {
 	})
 }
 
+func (f *MockFunction) verify(i int) (bool, error) {
+	if f.negative && f.count > 0 {
+		return false, fmt.Errorf("Function #%d %s executed %d times, expected no calls", i+1, f.Name, f.count)
+	}
+
+	switch f.countCheck {
+	case TIMES:
+		if f.count != f.times[1] {
+			return false, fmt.Errorf("Function #%d %s executed %d times, expected: %d", i+1, f.Name, f.count, f.times[1])
+		}
+	case AT_LEAST:
+		if f.count < f.times[1] {
+			return false, fmt.Errorf("Function #%d %s executed %d times, expected at least: %d", i+1, f.Name, f.count, f.times[1])
+		}
+	case AT_MOST:
+		if f.count > f.times[1] {
+			return false, fmt.Errorf("Function #%d %s executed %d times, expected at most: %d", i+1, f.Name, f.count, f.times[1])
+		}
+	case BETWEEN:
+		if f.count < f.times[0] || f.count > f.times[1] {
+			return false, fmt.Errorf("Function #%d %s executed %d times, expected between: [%d, %d]", i+1, f.Name, f.count, f.times[0], f.times[1])
+		}
+	}
+	return true, nil
+}
+
 // Verify verifies the restrictions set in the stubbing.
 func (m *Mock) Verify() (bool, error) {
 	for i, f := range m.Functions {
-		if f.negative && f.count > 0 {
-			return false, fmt.Errorf("Function #%d %s executed %d times, expected no calls", i+1, f.Name, f.count)
-		}
-
-		switch f.countCheck {
-		case TIMES:
-			if f.count != f.times[1] {
-				return false, fmt.Errorf("Function #%d %s executed %d times, expected: %d", i+1, f.Name, f.count, f.times[1])
-			}
-		case AT_LEAST:
-			if f.count < f.times[1] {
-				return false, fmt.Errorf("Function #%d %s executed %d times, expected at least: %d", i+1, f.Name, f.count, f.times[1])
-			}
-		case AT_MOST:
-			if f.count > f.times[1] {
-				return false, fmt.Errorf("Function #%d %s executed %d times, expected at most: %d", i+1, f.Name, f.count, f.times[1])
-			}
-		case BETWEEN:
-			if f.count < f.times[0] || f.count > f.times[1] {
-				return false, fmt.Errorf("Function #%d %s executed %d times, expected between: [%d, %d]", i+1, f.Name, f.count, f.times[0], f.times[1])
-			}
+		ok, err := f.verify(i)
+		if err != nil {
+			return ok, err
 		}
 	}
 	return true, nil
@@ -403,10 +411,11 @@ func (m *Mock) Called(arguments ...interface{}) *MockResult {
 }
 
 func (m *Mock) find(functions []*MockFunction, name string, arguments ...interface{}) (*MockFunction, []string) {
-	var ff *MockFunction
+	var firstMax *MockFunction
+	var firstAlreadyVerified *MockFunction
 	var alternatives []string
 
-	for _, f := range functions {
+	for j, f := range functions {
 		if f.Name != name {
 			continue
 		}
@@ -456,8 +465,17 @@ func (m *Mock) find(functions []*MockFunction, name string, arguments ...interfa
 		// Check if the count check is valid.
 		// If it's not try to match another function.
 		if f.isMaxCountCheck() {
-			if ff == nil {
-				ff = f
+			if firstMax == nil {
+				firstMax = f
+			}
+			continue
+		}
+
+		// Check if it's already verified.
+		// If it is, try to match another function to give it a chance to be fulfilled.
+		if ok, _ := f.verify(j); ok {
+			if firstAlreadyVerified == nil {
+				firstAlreadyVerified = f
 			}
 			continue
 		}
@@ -465,7 +483,10 @@ func (m *Mock) find(functions []*MockFunction, name string, arguments ...interfa
 		return f, alternatives
 	}
 
-	return ff, alternatives
+	if firstAlreadyVerified == nil {
+		firstAlreadyVerified = firstMax
+	}
+	return firstAlreadyVerified, alternatives
 }
 
 // Return defines the return values of a *MockFunction.

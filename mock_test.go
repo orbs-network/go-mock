@@ -307,7 +307,11 @@ func TestFindMultipleMatches(t *testing.T) {
 	m.When("FuncWithArgs", Any, Any).Return(4, "").Between(1, 3)
 	m.When("FuncWithArgs", AnyOfType("int"), AnyOfType("string")).Return(5, "booh").AtLeast(1)
 
-	results := []int{1, 2, 2, 3, 4, 4, 4, 5, 5, 5, 5}
+	// original spec:
+	// results := []int{1, 2, 2, 3, 4, 4, 4, 5, 5, 5, 5}
+	// changed spec: (will try to fulfill as many conditions as possible)
+	results := []int{1, 3, 4, 5, 2, 2, 4, 4, 5, 5, 5}
+
 	for _, r := range results {
 		a, _ := m.FuncWithArgs(1, "string")
 		if a != r {
@@ -935,3 +939,38 @@ func TestNeverPositive(t *testing.T) {
 	}
 }
 
+func TestOnceAfterZero(t *testing.T) {
+	m := MockedStruct{}
+	m.When("FuncNoArgs").Return(1).Times(0)
+	m.When("FuncNoArgs").Return(2).Times(1)
+
+	ret := m.FuncNoArgs()
+	if ret != 2 {
+		t.Error(fmt.Sprintf("Returned %d instead of %d", ret, 2))
+	}
+
+	if ok, err := m.Mock.Verify(); !ok {
+		t.Error(fmt.Sprintf("Verify failed: %s", err))
+	}
+}
+
+func TestOnceAfterAtLeast(t *testing.T) {
+	m := MockedStruct{}
+	m.When("FuncNoArgs").Return(1).AtLeast(1)
+
+	ret1 := m.FuncNoArgs()
+	if ret1 != 1 {
+		t.Error(fmt.Sprintf("Returned %d instead of %d", ret1, 1))
+	}
+
+	m.When("FuncNoArgs").Return(2).Times(1)
+
+	ret2 := m.FuncNoArgs()
+	if ret2 != 2 {
+		t.Error(fmt.Sprintf("Returned %d instead of %d", ret2, 2))
+	}
+
+	if ok, err := m.Mock.Verify(); !ok {
+		t.Error(fmt.Sprintf("Verify failed: %s", err))
+	}
+}
