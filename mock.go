@@ -344,11 +344,14 @@ func (m *Mock) Called(arguments ...interface{}) *MockResult {
 				}
 			}
 
+			// TK: need to release the mutex in the case that the internal Call calls a different function on the mock
+			m.mutex.Unlock()
 			if typ.IsVariadic() {
 				values = f.call.CallSlice(values)
 			} else {
 				values = f.call.Call(values)
 			}
+			m.mutex.Lock()
 
 			f.ReturnValues = []interface{}{}
 			for i := range values {
