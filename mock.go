@@ -344,14 +344,7 @@ func (m *Mock) Called(arguments ...interface{}) *MockResult {
 				}
 			}
 
-			// TK: need to release the mutex in the case that the internal Call calls a different function on the mock
-			m.mutex.Unlock()
-			if typ.IsVariadic() {
-				values = f.call.CallSlice(values)
-			} else {
-				values = f.call.Call(values)
-			}
-			m.mutex.Lock()
+			values = m.callFunctionOnCalled(typ, values, f)
 
 			f.ReturnValues = []interface{}{}
 			for i := range values {
@@ -411,6 +404,19 @@ func (m *Mock) Called(arguments ...interface{}) *MockResult {
 		msg = fmt.Sprintf("Mock call missing for:\n%s(%s)\nExpected calls:\n%s\n", functionName, argsStr, alts)
 	}
 	panic(msg)
+}
+
+func (m *Mock) callFunctionOnCalled(typ reflect.Type, values []reflect.Value, f *MockFunction) []reflect.Value {
+	// TK: need to release the mutex in the case that the internal Call calls a different function on the mock
+	m.mutex.Unlock()
+	defer m.mutex.Lock()
+
+	if typ.IsVariadic() {
+		values = f.call.CallSlice(values)
+	} else {
+		values = f.call.Call(values)
+	}
+	return values
 }
 
 func (m *Mock) find(functions []*MockFunction, name string, arguments ...interface{}) (*MockFunction, []string) {
