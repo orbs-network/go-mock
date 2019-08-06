@@ -525,6 +525,8 @@ func (f *MockFunction) Panic(v interface{}) *MockFunction {
 // Times defines how many times a *MockFunction must be called.
 // This is verified if mock.Verify is called.
 func (f *MockFunction) Times(a int) *MockFunction {
+	f.Lock()
+	defer f.Unlock()
 	f.countCheck = TIMES
 	f.times = [2]int{-1, a}
 	return f
@@ -533,6 +535,8 @@ func (f *MockFunction) Times(a int) *MockFunction {
 // AtLeast defines the number of times that a *MockFunction must be at least called.
 // This is verified if mock.Verify is called.
 func (f *MockFunction) AtLeast(a int) *MockFunction {
+	f.Lock()
+	defer f.Unlock()
 	f.countCheck = AT_LEAST
 	f.times = [2]int{-1, a}
 	return f
@@ -541,6 +545,8 @@ func (f *MockFunction) AtLeast(a int) *MockFunction {
 // AtMost defines the number of times that a *MockFunction must be at most called.
 // This is verified if mock.Verify is called.
 func (f *MockFunction) AtMost(a int) *MockFunction {
+	f.Lock()
+	defer f.Unlock()
 	f.countCheck = AT_MOST
 	f.times = [2]int{-1, a}
 	return f
@@ -549,6 +555,8 @@ func (f *MockFunction) AtMost(a int) *MockFunction {
 // Between defines a range of times that a *MockFunction must be called.
 // This is verified if mock.Verify is called.
 func (f *MockFunction) Between(a, b int) *MockFunction {
+	f.Lock()
+	defer f.Unlock()
 	f.countCheck = BETWEEN
 	f.times = [2]int{a, b}
 	return f
