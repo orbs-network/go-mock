@@ -41,6 +41,7 @@ const (
 
 // MockFunction is the struct used to store the properties of a method stub.
 type MockFunction struct {
+	sync.RWMutex
 	Name              string
 	Arguments         []interface{}
 	ReturnValues      []interface{}
@@ -186,6 +187,8 @@ func Slice(elements ...interface{}) AnyIfType {
 }
 
 func (f *MockFunction) verify(i int) (bool, error) {
+	f.RLock()
+	defer f.RUnlock()
 	if f.negative && f.count > 0 {
 		return false, fmt.Errorf("Function #%d %s executed %d times, expected no calls", i+1, f.Name, f.count)
 	}
@@ -303,6 +306,7 @@ func (m *Mock) Never(name string, arguments ...interface{}) {
 //			return r.Int(0), r.String(1), r.Error(2)
 // 		}
 func (m *Mock) Called(arguments ...interface{}) *MockResult {
+
 	var timeout time.Duration
 	defer func() {
 		m.mutex.Unlock()
@@ -324,7 +328,9 @@ func (m *Mock) Called(arguments ...interface{}) *MockResult {
 	f, alternatives := m.find(m.Functions, functionName, arguments...)
 	if f != nil {
 		// Increase the counter
+		f.Lock()
 		f.count++
+		f.Unlock()
 		f.order = m.order
 		m.order++
 
@@ -571,6 +577,9 @@ func (f *MockFunction) Call(call interface{}) *MockFunction {
 // Check if the number of times that a function has been called
 // has reach the top range.
 func (f *MockFunction) isMaxCountCheck() bool {
+	f.RLock()
+	defer f.RUnlock()
+
 	switch f.countCheck {
 	case TIMES:
 		if f.count >= f.times[1] {
