@@ -506,6 +506,8 @@ func (m *Mock) find(functions []*MockFunction, name string, arguments ...interfa
 
 // Return defines the return values of a *MockFunction.
 func (f *MockFunction) Return(v ...interface{}) *MockFunction {
+	f.Lock()
+	defer f.Unlock()
 	f.ReturnValues = append(f.ReturnValues, v...)
 	return f
 }
